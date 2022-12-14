@@ -146,16 +146,11 @@ initPageRank' pages
   | not (M.null pages) = M.map (const $ PageRank $ 1 / fromIntegral (M.size pages)) pages
   | otherwise = M.empty
 
-nextPageRank :: (Ord pageId, Edge e pageId,
-                 Graph g e pageId) 
-             => g -> PageRanks pageId -> pageId 
-             -> PageRank
-nextPageRank g pr i = ((1 - d) / n) + d * sum [pr M.! j * (1 / fromIntegral (length (targets j))) | j <- sources i]
+nextPageRank :: (Ord pageId, Edge e pageId, Graph g e pageId) => g -> PageRanks pageId -> pageId -> PageRank
+nextPageRank g pr i = ((1 - d) / n) + d * sum [pr M.! j * (1 / fromIntegral (length [target e | e <- edgesFrom g j])) | j <- [source e | e <- edgesTo g i]]
   where
     d = 0.85
-    n = fromIntegral (length (vertices g))
-    sources i = [source edge | edge <- edgesTo g i]
-    targets j = [target edge | edge <- edgesFrom g j]
+    n = fromIntegral $ length (vertices g)
 
 nextPageRanks :: Ord pageId => Graph g e pageId =>
   g -> PageRanks pageId -> PageRanks pageId
@@ -268,9 +263,18 @@ nextPlanetRank g@(GameState planets _ _) pr i = (1 - d) / n + d * sum [pr M.! j 
 checkPlanetRanks :: PlanetRanks -> PlanetRank
 checkPlanetRanks = sum . M.elems
 
-planetRankRush :: GameState -> AIState 
-               -> ([Order], Log, AIState)
-planetRankRush _ _ = undefined
+planetRankRush :: GameState -> AIState -> ([Order], Log, AIState)
+planetRankRush gs ai
+  | null (ourPlanets gs) = ([], [], ai)
+  | otherwise = (orders, [], ai')
+  where
+    orders = attackFromAll (fromJust target) gs
+    (target, ai') = case rushTarget ai of
+      Just t -> (Just t, ai)
+      Nothing -> (helper (planetRank gs) gs, ai {rushTarget = (helper (planetRank gs) gs)})
+    helper r gs@(GameState ps _ _)
+      | not (null (M.toList $ M.filterWithKey (\k _ -> k `notElem` M.keys (ourPlanets gs)) r)) = Just $ fst $ maximumBy (comparing snd) (M.toList $ M.filterWithKey (\k _ -> k `notElem` M.keys (ourPlanets gs)) r)
+      | otherwise = Nothing
 
 timidAttackFromAll :: PlanetId -> GameState -> [Order]
 timidAttackFromAll = undefined
