@@ -101,11 +101,25 @@ lookupPlanet pId (GameState planets _ _)
   = planets M.! pId
 
 attackFromAll :: PlanetId -> GameState -> [Order]
-attackFromAll targetId gs = undefined
+attackFromAll targetId gameState = concatMap helper $ M.toList $ ourPlanets gameState
+  where
+    getEdges Nothing = []
+    getEdges (Just (Path _ e)) = e
+    helper (source, _)
+      | not (null $ getEdges $ shortestPath source targetId gameState) = send (fst (last $ getEdges $ shortestPath source targetId gameState)) Nothing gameState
+      | otherwise = []
 
-zergRush :: GameState -> AIState 
-         -> ([Order], Log, AIState)
-zergRush gs ai = undefined
+zergRush :: GameState -> AIState -> ([Order], Log, AIState)
+zergRush gameState ai 
+  | isNothing (rushTarget ai) || ourPlanet (lookupPlanet (fromJust (rushTarget ai )) gameState) = (os, logging, ai {rushTarget = findEnemyPlanet gameState})
+  | otherwise = (os, logging, ai)
+  where 
+    logging = case findEnemyPlanet gameState of 
+      Just target -> ["Planet" ++ show target ++ "is being attacked"]
+      Nothing -> ["Enemy planets have not been found"]
+    os = case findEnemyPlanet gameState of 
+      Just target -> attackFromAll target gameState
+      Nothing -> []
 
 newtype PageRank = PageRank Double
   deriving (Num, Eq, Ord, Fractional)
@@ -128,7 +142,9 @@ example1 = [("a","b",1), ("a","c",1), ("a","d",1),
             ("c","d",1)]
 
 initPageRank' :: Map pageId a -> PageRanks pageId
-initPageRank' = undefined
+initPageRank' pages
+  | not (M.null pages) = M.map (const $ PageRank $ 1 / fromIntegral (M.size pages)) pages
+  | otherwise = M.empty
 
 nextPageRank :: (Ord pageId, Edge e pageId,
                  Graph g e pageId) 
