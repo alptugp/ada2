@@ -150,9 +150,12 @@ nextPageRank :: (Ord pageId, Edge e pageId,
                  Graph g e pageId) 
              => g -> PageRanks pageId -> pageId 
              -> PageRank
-nextPageRank g pr i = undefined
+nextPageRank g pr i = ((1 - d) / n) + d * sum [pr M.! j * (1 / fromIntegral (length (targets j))) | j <- sources i]
   where
     d = 0.85
+    n = fromIntegral (length (vertices g))
+    sources i = [source edge | edge <- edgesTo g i]
+    targets j = [target edge | edge <- edgesFrom g j]
 
 nextPageRanks :: Ord pageId => Graph g e pageId =>
   g -> PageRanks pageId -> PageRanks pageId
@@ -197,9 +200,10 @@ pageRanks' g k = iterateMaybe (nextPageRanks' g k)
 iterateMaybe :: (a -> Maybe a) -> a -> [a]
 iterateMaybe f x = x : maybe [] (iterateMaybe f) (f x)
 
-pageRank' :: (Ord pageId, Graph g e pageId) 
-          => g -> PageRanks pageId
-pageRank' g = undefined
+pageRank' :: (Ord pageId, Graph g e pageId) => g -> PageRanks pageId
+pageRank' g
+  | 200 <= length (pageRanks' g k) = (pageRanks' g k) !! 200
+  | otherwise = last $ pageRanks' g k
   where
     k = 0.0001
 
@@ -252,21 +256,14 @@ nextPlanetRanks g pr =
 
 nextPlanetRank :: GameState -> PlanetRanks 
                -> PlanetId -> PlanetRank
-nextPlanetRank g@(GameState planets _ _) pr i = 
-  (1 - d) / n + d * sum [pr M.! j * growth i / growths j 
-                        | j <- targets i]
+nextPlanetRank g@(GameState planets _ _) pr i = (1 - d) / n + d * sum [pr M.! j * growth i / growths j | j <- targets i]
   where
-    d   = 0.85
-    n   = fromIntegral (length planets)
-
-    growth :: PlanetId -> PlanetRank
     growth i  = (\(Planet _ _ g) -> fromIntegral g) 
                                     (planets M.! i)
-    targets :: PlanetId -> [PlanetId]
-    targets i = undefined
- 
-    growths :: PlanetId -> PlanetRank
-    growths j = undefined
+    growths j = PlanetRank $ sum $ map(\(Planet _ _ g) -> fromIntegral g) [lookupPlanet (source e) g | e <- edgesTo g j]
+    targets i = [target e | e <- edgesFrom g i]
+    d = 0.85
+    n = fromIntegral (length planets)
 
 checkPlanetRanks :: PlanetRanks -> PlanetRank
 checkPlanetRanks = sum . M.elems
