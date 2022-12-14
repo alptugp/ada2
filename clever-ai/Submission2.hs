@@ -64,13 +64,19 @@ enemyPlanet (Planet (Owned Player2) _ _) = True
 enemyPlanet _                            = False
 
 findEnemyPlanet :: GameState -> Maybe PlanetId
-findEnemyPlanet = undefined
+findEnemyPlanet (GameState ps _ _)
+  | not (null planetsOfEnemy) = Just (fst (head planetsOfEnemy))
+  | otherwise = Nothing
+  where planetsOfEnemy = filter (enemyPlanet . snd) (M.toList ps)
 
-send :: WormholeId -> Maybe Ships -> GameState 
-     -> [Order]
-send wId mShips st = undefined where
-  Wormhole (Source src) _ _ = lookupWormhole wId st
-  planet@(Planet _ totalShips _) = lookupPlanet src st
+send :: WormholeId -> Maybe Ships -> GameState -> [Order]
+send wormholeId maybeShips gameState
+  | not $ ourPlanet planet = []
+  | Nothing == maybeShips || totalShips < (fromJust maybeShips) = [Order wormholeId totalShips]
+  | otherwise = [Order wormholeId $ fromJust maybeShips]
+  where
+  Wormhole (Source source) _ _ = lookupWormhole wormholeId gameState
+  planet@(Planet _ totalShips _) = lookupPlanet source gameState
 
 shortestPath :: PlanetId -> PlanetId -> GameState 
              -> Maybe (Path (WormholeId, Wormhole))
