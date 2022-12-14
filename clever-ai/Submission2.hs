@@ -276,13 +276,34 @@ planetRankRush gs ai
       | not (null (M.toList $ M.filterWithKey (\k _ -> k `notElem` M.keys (ourPlanets gs)) r)) = Just $ fst $ maximumBy (comparing snd) (M.toList $ M.filterWithKey (\k _ -> k `notElem` M.keys (ourPlanets gs)) r)
       | otherwise = Nothing
 
+
+gett :: Map PlanetId PlanetRank -> GameState -> Maybe PlanetId
+gett r gs@(GameState ps _ _)
+  | not $ null (M.toList $ M.filterWithKey (\k _ -> k `notElem` M.keys (ourPlanets gs)) r) = Just $ fst $ maximumBy (comparing snd) (M.toList $ M.filterWithKey (\k _ -> k `notElem` M.keys (ourPlanets gs)) r)
+  | otherwise = Nothing
+
 timidAttackFromAll :: PlanetId -> GameState -> [Order]
-timidAttackFromAll = undefined
+timidAttackFromAll target gs = concatMap (firstOrderOfTimidPath target gs) (M.toList (ourPlanets gs))
+  where
+    getEdges (Just (Path _ e)) = e
+    getEdges Nothing = []
+    firstOrderOfTimidPath target gs (src, _)
+      | not $ null $ getEdges (shortestPath src target gs) = send (fst $ last $ getEdges (shortestPath src target gs)) Nothing gs
+      | otherwise = []
 
-timidRush :: GameState -> AIState
-          -> ([Order], Log, AIState)
-timidRush gs ai = undefined
-
+timidRush :: GameState -> AIState -> ([Order], Log, AIState)
+timidRush gs ai
+  | not $ null (ourPlanets gs) = (orders, [], aii)
+  | otherwise = ([], [], ai)
+  where
+    orders = case target of
+      Just t -> timidAttackFromAll t gs
+      Nothing -> []
+    (target, aii) = case rushTarget ai of
+      Just t -> (Just t, ai)
+      Nothing -> (gett (planetRank gs) gs, ai { rushTarget = (gett (planetRank gs) gs) })
+    
+      
 skynet :: GameState -> AIState -> ([Order],Log,AIState)
 skynet _ _ = undefined
 
